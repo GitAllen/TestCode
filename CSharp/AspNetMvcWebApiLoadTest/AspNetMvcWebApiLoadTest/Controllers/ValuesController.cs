@@ -8,7 +8,7 @@ using System.Web.Http;
 namespace AspNetMvcWebApiLoadTest.Controllers
 {
     [Authorize]
-    public class ValuesController : ApiController
+    public class ValuesController : TestApiController
     {
         // GET api/values
         public IEnumerable<string> Get()
