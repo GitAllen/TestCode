@@ -33,7 +33,7 @@ namespace AspNetMvcWebApiLoadTest.Controllers
                 return BadRequest("do you forget something");
             }
 
-            _logger.Info("Id = {1}", model.Id);
+            _logger.Info("Id = {0}", model.Id);
 
             return Ok();
         }
