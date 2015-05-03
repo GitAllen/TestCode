@@ -1,0 +1,1 @@
+A hello-world site create from VS 2015 RC and ASP.NET 5 BETA 4. To test if it can be deployed to Azure Web Apps and/or Azure Linux docker VM
