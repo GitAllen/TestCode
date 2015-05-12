@@ -3,16 +3,21 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
-using System.Net;
 using Microsoft.WindowsAzure.Storage;
 using System.Text;
 using Microsoft.WindowsAzure.Storage.Blob;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace TestAppendToBlobWithStream
 {
     class Program
     {
-        private const int bufferSize = 1024 * 1024;
+        private const int MaxBlockSize = 4 * 1024 * 1024;
+        private static int _offset = 0;
+        private static MemoryStream _currentStream = new MemoryStream();
+        private static BlockingCollection<MemoryStream> _bufferQueue = new BlockingCollection<MemoryStream>();
+        private static CloudBlockBlob _blob;
 
         static void Main(string[] args)
         {
@@ -20,62 +25,69 @@ namespace TestAppendToBlobWithStream
             var blobClient = storageAccount.CreateCloudBlobClient();
             var container = blobClient.GetContainerReference("mycontainer");
             container.CreateIfNotExists();
-
-            var blob = container.GetBlockBlobReference("myblob.txt");
-            blob.StreamMinimumReadSizeInBytes = 1024 * 1024;
-
-            using (var buffer = new MemoryStream())
+            _blob = container.GetBlockBlobReference("myblob.txt");
+            if (!_blob.Exists())
             {
-                int i = 0;
-                while (i < 1000000)
+                using (var s = new MemoryStream())
                 {
-                    i++;
-                    string line = string.Format("Content of line {0}{1}", i, Environment.NewLine);
-
-                    var bytes = Encoding.Default.GetBytes(line);
-                    buffer.Write(bytes, 0, bytes.Length);
-                    if (buffer.Length > bufferSize)
-                    {
-                        Console.WriteLine("line={0}", line);
-                        AppendToBlob(blob, buffer);
-                    }
+                    _blob.UploadFromStream(s);
                 }
+            }
+
+            Task.Factory.StartNew(GenerateContent);
+            Task.Factory.StartNew(AppendStreamToBlob);
+            Task.WaitAll();
+
+            Console.ReadLine();
+        }
+
+        private static void GenerateContent()
+        {
+            int i = 0;
+            while (i < 100)
+            {
+                i++;
+                string line = string.Format("Content of line {0}{1}", i, Environment.NewLine);
+
+                var bytes = Encoding.Default.GetBytes(line);
+                AddBufferToQueue(bytes);
             }
         }
 
-        static void AppendToBlob(CloudBlockBlob blob, MemoryStream stream)
+        private static void AddBufferToQueue(byte[] bytes)
         {
-            var blockIdList = new List<string>();
-            try
+            if (_offset + bytes.Length > MaxBlockSize)
             {
-                blockIdList.AddRange(blob.DownloadBlockList().Select(b => b.Name));
-            }
-            catch (StorageException e)
-            {
-                if (e.RequestInformation.HttpStatusCode != (int)HttpStatusCode.NotFound)
-                {
-                    throw;
-                }
-                Console.WriteLine("Blob does not yet exist. Creating...");
-                using (var s = new MemoryStream())
-                {
-                    blob.UploadFromStream(s);
-                }
+                var ms = new MemoryStream();
+                _currentStream.Position = 0;
+                _currentStream.CopyTo(ms);
+                _bufferQueue.Add(ms);
+                Console.WriteLine("New buffer added to queue successfully");
+                _currentStream.SetLength(0);
+                _offset = 0;
             }
 
-            var newBlockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray()).Replace('+', 'A').Replace('\\', 'B').Replace('/', 'C');
-            stream.Position = 0;
-            blob.PutBlock(newBlockId, stream, null);
-            blockIdList.Add(newBlockId);
-            blob.PutBlockList(blockIdList);
+            _currentStream.Write(bytes, 0, bytes.Length);
+            _offset += bytes.Length;
 
-            stream.Position = 0;
-            stream.SetLength(0);
+        }
 
-            //Console.WriteLine("New contents after buffer flush:");
-            //Console.WriteLine(blob.DownloadText());
+        private static void AppendStreamToBlob()
+        {
+            foreach (var stream in _bufferQueue.GetConsumingEnumerable())
+            {
+                var blockIdList = new List<string>();
+                blockIdList.AddRange(_blob.DownloadBlockList().Select(b => b.Name));
 
-            Console.WriteLine("Append completed successfully");
+                var newBlockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray()).Replace('+', 'A').Replace('\\', 'B').Replace('/', 'C');
+                stream.Position = 0;
+                _blob.PutBlock(newBlockId, stream, null);
+                blockIdList.Add(newBlockId);
+                _blob.PutBlockList(blockIdList);
+                stream.Close();
+
+                Console.WriteLine("Block {0} is appended successfully", newBlockId);
+            }
         }
     }
 }
