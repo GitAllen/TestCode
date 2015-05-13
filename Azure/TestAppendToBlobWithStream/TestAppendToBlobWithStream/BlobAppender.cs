@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.Services.Client;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
@@ -15,8 +13,10 @@ namespace TestAppendToBlobWithStream
     public class BlobAppender
     {
         private const int MaxBlockSize = 4 * 1024 * 1024;
+        private const int MaxBufferTimeInSecond = 5;
         private string _storageConnectionString;
-        private int _offset = 0;
+        private int _bufferOffset = 0;
+        private DateTime _lastBufferTime = DateTime.Now;
         private MemoryStream _currentStream = new MemoryStream();
         private BlockingCollection<MemoryStream> _bufferQueue = new BlockingCollection<MemoryStream>();
         private CloudBlockBlob _blob;
@@ -57,12 +57,13 @@ namespace TestAppendToBlobWithStream
 
                 var bytes = Encoding.Default.GetBytes(line);
                 await AddBufferToQueueAsync(bytes);
+                await Task.Delay(100);
             }
         }
 
         private async Task AddBufferToQueueAsync(byte[] bytes)
         {
-            if (_offset + bytes.Length > MaxBlockSize)
+            if (_bufferOffset + bytes.Length > MaxBlockSize || (DateTime.Now - _lastBufferTime).TotalSeconds > MaxBufferTimeInSecond)
             {
                 var ms = new MemoryStream();
                 _currentStream.Position = 0;
@@ -70,11 +71,12 @@ namespace TestAppendToBlobWithStream
                 _bufferQueue.Add(ms);
                 Console.WriteLine("New buffer added to queue successfully");
                 _currentStream.SetLength(0);
-                _offset = 0;
+                _bufferOffset = 0;
+                _lastBufferTime = DateTime.Now;
             }
 
             await _currentStream.WriteAsync(bytes, 0, bytes.Length);
-            _offset += bytes.Length;
+            _bufferOffset += bytes.Length;
         }
 
         private async Task AppendStreamToBlobAsync()
