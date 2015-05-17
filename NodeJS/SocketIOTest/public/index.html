@@ -127,9 +127,9 @@
         }
 
         var socket = io();
-        socket.on('message', function (msg) {
-            console.log('received data: ' + msg);
-            deviceValue[0] = msg;
+        socket.on('message', function (data) {
+            console.log('receive data: id = ' + data.id + ', value = ' + data.value);
+            deviceValue[data.id] = data.value;
         });
 
         tick();
@@ -144,6 +144,7 @@
             for (i = 0; i < 10; i++) {
                 data[i].push({ value: deviceValue[i] });
             }
+            
             //slide the x-axis left
             axis.transition()
                 .duration(duration)
@@ -151,8 +152,7 @@
                 .call(x.axis);
 
             //Update the paths based on the updated line data and slide left
-            path
-                .attr("d", line)
+            path.attr("d", line)
                 .attr("transform", null)
                 .transition()
                 .duration(duration)
@@ -160,7 +160,6 @@
                 .attr("transform", "translate(" + x(now - (n - 1) * duration) + ",0)")
                 .call(endall, tick);
 
-            // pop the old data point off the front
             for (var i = 0; i < data.length; i++) {
                 data[i].shift();
             };

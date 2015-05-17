@@ -12,7 +12,7 @@ server.listen(port, function () {
 
 io.on('connection', function (socket) {
     socket.on('message', function (data) {
-        console.log('receive data: ' + data);
+        console.log('receive data: id = ' + data.id + ', value = ' + data.value);
         socket.broadcast.emit('message', data);
     });
 });

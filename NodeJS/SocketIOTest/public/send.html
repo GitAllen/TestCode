@@ -18,9 +18,12 @@
             var timerId;
             $('#start').click(function () {
                 timerId = setInterval(function () {
-                    var r = Math.floor((Math.random() * 100) + 1);
-                    $('#output').prepend('sending data: ' + r).prepend('<br>');
-                    socket.emit('message', r);
+                    var id = Math.ceil(Math.random() * 10);
+                    for ( int i = 0 ; i < 10 ; i++ ){
+                        var value = Math.floor((Math.random() * 100) + 1);
+                        $('#output').prepend('sending data: id = ' + i + ',value = ' + value).prepend('<br>');
+                        socket.emit('message', {id: i, value: value});
+                    }
                 }, 1000);
             });
             $('#stop').click(function () {
