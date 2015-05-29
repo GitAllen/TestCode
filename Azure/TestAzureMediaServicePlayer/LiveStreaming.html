@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Azure Media Player</title>
+    <link rel="stylesheet" href="css/main.css">
+            
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+
+    <!-- Azure Media Player -->
+    <link href="http://amp.azure.net/libs/amp/1.1.0/skins/amp-default/azuremediaplayer.min.css" rel="stylesheet">
+
+    <!--Load Plugins-->
+    <script src="plugins/hotkeys.js"></script>
+        
+    <script>
+        $(function(){
+            amp.options.flashSS.swf = 'http://amp.azure.net/libs/amp/1.0.0/techs/StrobeMediaPlayback.2.0.swf';
+            amp.options.flashSS.plugin = 'http://amp.azure.net/libs/amp/1.0.0/techs/MSAdaptiveStreamingPlugin-osmf2.0.swf';
+            amp.options.silverlightSS.xap = 'http://amp.azure.net/libs/amp/1.0.0/techs/SmoothStreamingPlayer.xap';
+
+            var myOptions = {
+                //sources: mySourceList,
+                "nativeControlsForTouch": false,
+                "loop": false,
+                heuristicProfile: "High Quality",
+                customPlayerSettings: {
+                    "customHeuristicSettings": {
+                        "preRollInSec": 4,
+                        "windowSizeHeuristics": true
+                    }
+                }
+            };
+            myOptions.techOrder = ["flashSS", "flash"];
+            var url = 'http://cciclive2-ccicmediash.channel.mediaservices.chinacloudapi.cn/preview.isml/manifest';
+            var mimeType = "application/vnd.ms-sstr+xml";
+            var boolDisableURLRewrite = true;
+            var mySourceList = [{ src: url.trim(), type: mimeType, disableUrlRewriter: boolDisableURLRewrite }];
+            var myTrackList = [];
+
+            var myPlayer = amp("azuremediaplayer", myOptions);
+            myPlayer.autoplay(true);
+            myPlayer.src(mySourceList, myTrackList);
+        });
+    </script>
+</head>
+<body>
+    <video id="azuremediaplayer" class="azuremediaplayer amp-default-skin amp-big-play-centered" autoplay controls preload="auto" width="100%" height="500" poster="" tabindex=0>
+        <p class="amp-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that supports HTML5 video</p>
+    </video>
+</body>
+</html>
